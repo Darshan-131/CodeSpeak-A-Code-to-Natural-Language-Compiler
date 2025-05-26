@@ -8,47 +8,69 @@ class CodeExplainer(ast.NodeVisitor):
     def __init__(self):
         self.explanations = []
 
+    def add_explanation(self, line, explanation, paragraph):
+        self.explanations.append({
+            "line": f"(Line {line}) {explanation}",
+            "paragraph": paragraph
+        })
+
     def visit_Assign(self, node):
         targets = [ast.unparse(t) for t in node.targets]
         value = ast.unparse(node.value)
-        self.explanations.append(f"(Line {node.lineno}) Assigns {value} to {', '.join(targets)}.")
+        explanation = f"Assigns {value} to {', '.join(targets)}."
+        paragraph = f"This line assigns the value '{value}' to the variable(s) '{', '.join(targets)}'."
+        self.add_explanation(node.lineno, explanation, paragraph)
         self.generic_visit(node)
 
     def visit_FunctionDef(self, node):
         args = [arg.arg for arg in node.args.args]
-        self.explanations.append(f"(Line {node.lineno}) Defines a function '{node.name}' with arguments: {', '.join(args)}.")
+        explanation = f"Defines a function '{node.name}' with arguments: {', '.join(args)}."
+        paragraph = f"The function '{node.name}' is created with parameters: {', '.join(args)}. It groups related code together."
+        self.add_explanation(node.lineno, explanation, paragraph)
         self.generic_visit(node)
 
     def visit_If(self, node):
         test = ast.unparse(node.test)
-        self.explanations.append(f"(Line {node.lineno}) Checks the condition: '{test}'.")
+        explanation = f"Checks the condition: '{test}'."
+        paragraph = f"This line evaluates the condition '{test}' and decides which block of code to execute."
+        self.add_explanation(node.lineno, explanation, paragraph)
         for stmt in node.body:
             self.visit(stmt)
         if node.orelse:
-            self.explanations.append(f"(Line {node.orelse[0].lineno}) Executes the else block if the condition is False.")
+            explanation_else = f"Executes the else block if the condition is False."
+            paragraph_else = f"If the condition is not met, this block will be executed."
+            self.add_explanation(node.orelse[0].lineno, explanation_else, paragraph_else)
             for stmt in node.orelse:
                 self.visit(stmt)
 
     def visit_For(self, node):
         target = ast.unparse(node.target)
         iter_ = ast.unparse(node.iter)
-        self.explanations.append(f"(Line {node.lineno}) Loops over '{iter_}' using variable '{target}'.")
+        explanation = f"Loops over '{iter_}' using variable '{target}'."
+        paragraph = f"This line starts a for loop, iterating over '{iter_}' and using '{target}' for each item."
+        self.add_explanation(node.lineno, explanation, paragraph)
         self.generic_visit(node)
 
     def visit_While(self, node):
         test = ast.unparse(node.test)
-        self.explanations.append(f"(Line {node.lineno}) Runs a while loop with condition: '{test}'.")
+        explanation = f"Runs a while loop with condition: '{test}'."
+        paragraph = f"This line creates a while loop that runs as long as the condition '{test}' is true."
+        self.add_explanation(node.lineno, explanation, paragraph)
         self.generic_visit(node)
 
     def visit_Expr(self, node):
         if isinstance(node.value, ast.Call):
             call_expr = ast.unparse(node.value)
-            self.explanations.append(f"(Line {node.lineno}) Executes a function call: '{call_expr}'.")
+            explanation = f"Executes a function call: '{call_expr}'."
+            paragraph = f"This line calls the function or method '{call_expr}' to perform an action."
+            self.add_explanation(node.lineno, explanation, paragraph)
         self.generic_visit(node)
 
     def visit_Return(self, node):
         value = ast.unparse(node.value) if node.value else 'nothing'
-        self.explanations.append(f"(Line {node.lineno}) Returns {value}.")
+        explanation = f"Returns {value}."
+        paragraph = f"This line ends the function and returns the value '{value}' to the caller."
+        self.add_explanation(node.lineno, explanation, paragraph)
         self.generic_visit(node)
 
     def explain(self, code):
@@ -57,20 +79,18 @@ class CodeExplainer(ast.NodeVisitor):
             self.visit(tree)
             return self.explanations
         except Exception as e:
-            return [f"Error parsing code: {str(e)}"]
+            return [{"line": f"Error parsing code: {str(e)}", "paragraph": ""}]
 
 @app.route("/", methods=["GET", "POST"])
 def index():
-    explanation_output = ""
+    explanation_output = []
     code_input = ""
 
     if request.method == "POST":
-        # Check if user uploaded a file
         if "file" in request.files and request.files["file"].filename != "":
             uploaded_file = request.files["file"]
             code_input = uploaded_file.read().decode("utf-8")
         else:
-            # Or get code from textarea
             code_input = request.form.get("code", "")
 
         explainer = CodeExplainer()
