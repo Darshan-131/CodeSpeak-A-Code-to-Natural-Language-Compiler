@@ -23,8 +23,11 @@
         <div class="explanation">
             <h2>Explanation:</h2>
             <ol>
-                {% for line in explanation %}
-                    <li>{{ line }}</li>
+                {% for item in explanation %}
+                    <li>
+                        {{ item.line }}<br>
+                        <p>{{ item.paragraph }}</p>
+                    </li>
                 {% endfor %}
             </ol>
         </div>
